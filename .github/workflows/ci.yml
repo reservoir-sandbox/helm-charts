@@ -53,9 +53,9 @@ jobs:
         run: |
           CHART_VERSION=$(yq eval '.version' charts/frontend/Chart.yaml)
           export CHART_VERSION
-          yq eval -i '.spec.chart.spec.version = strenv(CHART_VERSION)' gitops-deployment/apps/frontend-release.yaml
+          yq eval -i '.spec.chart.spec.version = strenv(CHART_VERSION)' gitops-deployment/apps/frontend/frontend-release.yaml
           git -C gitops-deployment config user.name "github-actions"
           git -C gitops-deployment config user.email "github-actions@github.com"
-          git -C gitops-deployment add apps/frontend-release.yaml
+          git -C gitops-deployment add apps/frontend/frontend-release.yaml
           git -C gitops-deployment commit -m "Update frontend chart to version ${CHART_VERSION}"
           git -C gitops-deployment push
