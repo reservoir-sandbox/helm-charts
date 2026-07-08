@@ -49,13 +49,31 @@ jobs:
           wget https://github.com/mikefarah/yq/releases/download/v4.25.1/yq_linux_amd64 -O /usr/local/bin/yq
           chmod +x /usr/local/bin/yq
 
-      - name: Update frontend HelmRelease chart version
+      - name: Bump Chart version and update HelmRelease
         run: |
-          CHART_VERSION=$(yq eval '.version' charts/frontend/Chart.yaml)
-          export CHART_VERSION
-          yq eval -i '.spec.chart.spec.version = strenv(CHART_VERSION)' gitops-deployment/apps/frontend/frontend-release.yaml
-          git -C gitops-deployment config user.name "github-actions"
-          git -C gitops-deployment config user.email "github-actions@github.com"
+          CURRENT_VERSION=$(yq eval '.version' charts/frontend/Chart.yaml)
+
+          IFS='.' read -r major minor patch <<< "$CURRENT_VERSION"
+
+          NEW_PATCH=$((patch + 1))
+          NEW_VERSION="$major.$minor.$NEW_PATCH"
+
+          export NEW_VERSION
+          yq eval -i '.version = strenv(NEW_VERSION)' charts/frontend/Chart.yaml
+
+          yq eval -i '.spec.chart.spec.version = strenv(NEW_VERSION)' gitops-deployment/apps/frontend/frontend-release.yaml
+
+          git config --global user.name "github-actions"
+          git config --global user.email "github-actions@github.com"
+
+          git add charts/frontend/Chart.yaml
+          if [ -n "$(git status --porcelain charts/frontend/Chart.yaml)" ]; then
+            git commit -m "chore: bump frontend chart version to ${NEW_VERSION} [skip ci]"
+            git push
+          fi
+
           git -C gitops-deployment add apps/frontend/frontend-release.yaml
-          git -C gitops-deployment commit -m "Update frontend chart to version ${CHART_VERSION}"
-          git -C gitops-deployment push
+          if [ -n "$(git -C gitops-deployment status --porcelain apps/frontend/frontend-release.yaml)" ]; then
+            git -C gitops-deployment commit -m "Update frontend chart to version ${NEW_VERSION}"
+            git -C gitops-deployment push
+          fi
