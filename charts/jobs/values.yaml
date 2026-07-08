@@ -1,0 +1,34 @@
+replicaCount: 1
+image:
+  repository: busybox
+  pullPolicy: IfNotPresent
+  tag: "latest"
+
+serviceAccount:
+  create: true
+  name: ""
+
+configMap:
+  enabled: false
+  data: {}
+
+networkPolicy:
+  enabled: false
+  # Example policy, adjust as needed
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+      - namespaceSelector:
+          matchLabels:
+            name: backend-namespace # Assuming backend is in this namespace
+  egress:
+    - to:
+      - ipBlock:
+          cidr: 0.0.0.0/0
+        ports:
+          - protocol: TCP
+            port: 53 # DNS
+          - protocol: UDP
+            port: 53 # DNS

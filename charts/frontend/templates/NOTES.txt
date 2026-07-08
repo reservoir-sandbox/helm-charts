@@ -1,0 +1,2 @@
+Frontend chart intentionally has no Kubernetes resources yet.
+This placeholder keeps Helm chart structure complete and lint-friendly.

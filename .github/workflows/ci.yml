@@ -1,0 +1,61 @@
+name: Publish Helm Charts
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io/${{ github.repository_owner }}
+
+jobs:
+  publish-charts:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Run chart-releaser
+        uses: helm/chart-releaser-action@v1.6.0
+        env:
+          CR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          charts_dir: charts
+
+      - name: Update chart version in gitops-deployment
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository_owner }}/gitops-deployment
+          token: ${{ secrets.PAT_TOKEN }}
+          path: gitops-deployment
+
+      - name: Install yq
+        run: |
+          wget https://github.com/mikefarah/yq/releases/download/v4.25.1/yq_linux_amd64 -O /usr/local/bin/yq
+          chmod +x /usr/local/bin/yq
+
+      - name: Update frontend HelmRelease chart version
+        run: |
+          CHART_VERSION=$(yq eval '.version' charts/frontend/Chart.yaml)
+          export CHART_VERSION
+          yq eval -i '.spec.chart.spec.version = strenv(CHART_VERSION)' gitops-deployment/apps/frontend-release.yaml
+          git -C gitops-deployment config user.name "github-actions"
+          git -C gitops-deployment config user.email "github-actions@github.com"
+          git -C gitops-deployment add apps/frontend-release.yaml
+          git -C gitops-deployment commit -m "Update frontend chart to version ${CHART_VERSION}"
+          git -C gitops-deployment push
