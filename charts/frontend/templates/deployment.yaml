@@ -26,4 +26,4 @@ spec:
               protocol: TCP
           envFrom:
             - configMapRef:
-              name: {{ include "common.fullname" . }}-config
+                name: {{ include "common.fullname" . }}-config
