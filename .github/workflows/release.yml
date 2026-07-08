@@ -21,6 +21,10 @@ jobs:
           git config user.name "$GITHUB_ACTOR"
           git config user.email "$GITHUB_ACTOR@users.noreply.github.com"
 
+      - name: Build chart dependencies
+        run: |
+          helm dependency build charts/frontend/
+
       - name: Run chart-releaser
         uses: helm/chart-releaser-action@v1.6.0
         env:

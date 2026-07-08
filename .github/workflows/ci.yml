@@ -63,19 +63,20 @@ jobs:
           git config --global user.email "github-actions@github.com"
 
           yq eval -i '.version = strenv(NEW_VERSION)' charts/frontend/Chart.yaml
+          yq eval -i '.spec.chart.spec.version = strenv(NEW_VERSION)' gitops-deployment/apps/frontend/frontend-release.yaml
 
           git add charts/frontend/Chart.yaml
           if [ -n "$(git status --porcelain charts/frontend/Chart.yaml)" ]; then
             git commit -m "chore: bump frontend chart version to ${NEW_VERSION}"
             git push
-
-            yq eval -i '.spec.chart.spec.version = strenv(NEW_VERSION)' gitops-deployment/apps/frontend/frontend-release.yaml
-
-            git -C gitops-deployment add apps/frontend/frontend-release.yaml
-            if [ -n "$(git -C gitops-deployment status --porcelain apps/frontend/frontend-release.yaml)" ]; then
-              git -C gitops-deployment commit -m "Update frontend chart to version ${NEW_VERSION}"
-              git -C gitops-deployment push
-            fi
           else
-            echo "Version doesn't changem skipping GitOps validating."
+            echo "Версия чарта не изменилась в основном репозитории."
+          fi
+
+          git -C gitops-deployment add apps/frontend/frontend-release.yaml
+          if [ -n "$(git -C gitops-deployment status --porcelain apps/frontend/frontend-release.yaml)" ]; then
+            git -C gitops-deployment commit -m "Update frontend chart to version ${NEW_VERSION}"
+            git -C gitops-deployment push
+          else
+            echo "Файл HelmRelease не изменился."
           fi
