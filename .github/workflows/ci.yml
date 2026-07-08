@@ -60,7 +60,6 @@ jobs:
 
           export NEW_VERSION
           yq eval -i '.version = strenv(NEW_VERSION)' charts/frontend/Chart.yaml
-
           yq eval -i '.spec.chart.spec.version = strenv(NEW_VERSION)' gitops-deployment/apps/frontend/frontend-release.yaml
 
           git config --global user.name "github-actions"
@@ -68,12 +67,12 @@ jobs:
 
           git add charts/frontend/Chart.yaml
           if [ -n "$(git status --porcelain charts/frontend/Chart.yaml)" ]; then
-            git commit -m "chore: bump frontend chart version to ${NEW_VERSION} [skip ci]"
+            git commit -m "chore: bump frontend chart version to ${NEW_VERSION}"
             git push
           fi
 
           git -C gitops-deployment add apps/frontend/frontend-release.yaml
           if [ -n "$(git -C gitops-deployment status --porcelain apps/frontend/frontend-release.yaml)" ]; then
-            git -C gitops-deployment commit -m "Update frontend chart to version ${NEW_VERSION}"
+            git -C gitops-deployment commit -m "Update frontend chart to version ${NEW_VERSION} [skip ci]"
             git -C gitops-deployment push
           fi
