@@ -47,7 +47,9 @@ networkPolicy:
         - protocol: TCP
           port: 8080
     - from:
-        - targetNamespace: infrastructure
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: infrastructure
           podLabels:
             app.kubernetes.io/name: ingress-nginx
       ports:
