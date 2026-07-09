@@ -56,7 +56,7 @@ networkPolicy:
   egress:
     - to:
         - podLabels:
-            app.kubernetes.io/name: postgresql-db-postgresql
+            app.kubernetes.io/name: postgresql
         - podLabels:
             app.kubernetes.io/name: redis
       ports:
