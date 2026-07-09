@@ -9,7 +9,6 @@ on:
   workflow_dispatch:
 
 env:
-  # Изменено для OCI: Базовый реестр без имени владельца
   REGISTRY: ghcr.io
 
 jobs:
@@ -45,7 +44,7 @@ jobs:
           token: ${{ secrets.PAT_TOKEN }}
           path: gitops-deployment
 
-      # Step 5: Log in to GitHub Container Registry BEFORE the loop (Mandatory for OCI helm push)
+      # Step 5: Log in to GitHub Container Registry BEFORE the loop
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
         with:
@@ -56,14 +55,21 @@ jobs:
       # Step 6: Process, bump, package, and PUSH changed charts to OCI Registry
       - name: Process, bump and prepare ONLY changed charts
         run: |
-          # Get a list of directories that actually have changes in the current commit
+          # Получаем список измененных папок
           CHANGED_FOLDERS=$(git diff --name-only HEAD~1 HEAD | awk -F/ '{print $1"/"$2}' | sort -u)
 
-          # Prepare temporary directory for packaged .tgz files
+          # Проверяем, изменился ли чарт common
+          COMMON_CHANGED=false
+          if echo "$CHANGED_FOLDERS" | grep -q "charts/common"; then
+            echo "⚠️  Detected changes in 'charts/common'! All target charts will be rebuilt."
+            COMMON_CHANGED=true
+          fi
+
+          # Подготовка временной директории для пакетов
           PACKAGED_DIR="/tmp/packaged-charts"
           mkdir -p "$PACKAGED_DIR"
 
-          # Secure lowercase OCI registry path format (standard for docker artifacts)
+          # Форматирование URL реестра
           LOWER_OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
           OCI_TARGET_URL="oci://ghcr.io/${LOWER_OWNER}/helm-charts"
 
@@ -71,34 +77,35 @@ jobs:
             if [ -d "$chart_dir" ]; then
               chart_name=$(basename "$chart_dir")
 
-              if echo "$CHANGED_FOLDERS" | grep -q "$chart_dir"; then
-                echo "🚀 Changes detected in chart: $chart_name. Starting OCI registry push..."
+              # Условие сборки: изменился сам чарт ИЛИ изменился common чарт
+              if echo "$CHANGED_FOLDERS" | grep -q "$chart_dir" || [ "$COMMON_CHANGED" = true ]; then
+                echo "🚀 Processing chart: $chart_name (Triggered by direct change or common chart update)..."
 
-                # 1. Read and calculate the next version
+                # 1. Читаем и увеличиваем версию чарта
                 CURRENT_VERSION=$(yq eval '.version' ${chart_dir}/Chart.yaml)
                 IFS='.' read -r major minor patch <<< "$CURRENT_VERSION"
                 NEW_PATCH=$((patch + 1))
                 NEW_VERSION="$major.$minor.$NEW_PATCH"
 
-                # 2. Update version inside Chart.yaml
+                # 2. Обновляем версию в Chart.yaml
                 export NEW_VERSION
                 yq eval -i '.version = strenv(NEW_VERSION)' ${chart_dir}/Chart.yaml
 
-                # 3. Build Helm dependencies
-                helm dependency build $chart_dir/
+                # 3. Обновляем и собираем Helm зависимости (включая измененный common)
+                helm dependency update $chart_dir/
 
-                # 4. FIXED: Native Helm OCI Packaging and Direct Push
+                # 4. Упаковка и пуш в OCI Registry
                 helm package $chart_dir/ -d "$PACKAGED_DIR"
                 helm push "${PACKAGED_DIR}/${chart_name}-${NEW_VERSION}.tgz" "$OCI_TARGET_URL"
                 echo "✅ Successfully pushed $chart_name version $NEW_VERSION to $OCI_TARGET_URL"
 
-                # 5. Map directory to its correct Flux folder inside gitops repo
+                # 5. Маппинг папок для Flux
                 flux_dir="apps"
                 if [ "$chart_name" = "jobs" ]; then
                   flux_dir="jobs"
                 fi
 
-                # 6. Update HelmRelease version in GitOps repository if the file exists
+                # 6. Обновление HelmRelease манифеста в репозитории GitOps
                 flux_manifest="gitops-deployment/${flux_dir}/${chart_name}/${chart_name}-release.yaml"
                 if [ -f "$flux_manifest" ]; then
                   yq eval -i '.spec.chart.spec.version = strenv(NEW_VERSION)' "$flux_manifest"
@@ -111,16 +118,16 @@ jobs:
             fi
           done
 
-          # Commit and push all updated Chart.yaml files back to the charts repository
+          # Делаем коммит изменений Chart.yaml обратно в репозиторий чартов
           git add charts/*/Chart.yaml
           if [ -n "$(git status --porcelain charts/*/Chart.yaml)" ]; then
-            git commit -m "chore: automated charts version bump for changed services [oci setup]"
+            git commit -m "chore: automated charts version bump due to direct or common changes [oci setup]"
             git push
           else
             echo "No chart versions were changed in this run."
           fi
 
-      # Step 7: Push all modified HelmRelease manifests to the GitOps repo in one single commit
+      # Step 7: Push all modified HelmRelease manifests to the GitOps repo
       - name: Push updated HelmRelease manifests to GitOps repo
         run: |
           git -C gitops-deployment add .
