@@ -13,7 +13,7 @@ serviceAccount:
   name: ""
 
 config:
-  backendUrl: "http://cluster.local"
+  backendUrl: "http://api.sandbox.reservoir"
   nodeEnv: "production"
 
 ingress:
