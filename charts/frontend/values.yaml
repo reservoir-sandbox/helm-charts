@@ -13,8 +13,10 @@ serviceAccount:
   name: ""
 
 config:
-  backendUrl: "http://api.sandbox.reservoir"
   nodeEnv: "production"
+
+  VITE_API_URL: "http://api.sandbox.reservoir"
+
 
 ingress:
   enabled: true
