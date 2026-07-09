@@ -61,11 +61,6 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end -}}
 {{- end -}}
 
-{{/*
-УЛУЧШЕНИЯ 2 и 3: Generic NetworkPolicy, рендерящий ресурс ЦЕЛИКОМ.
-Включает автоматическое разрешение CoreDNS при наличии Egress-правил
-и стандартизированную кросс-неймспейс фильтрацию по системному лейблу кубера.
-*/}}
 {{- define "common.networkpolicy" -}}
 {{- if .Values.networkPolicy.enabled }}
 apiVersion: networking.k8s.io/v1
