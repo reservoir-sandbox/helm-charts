@@ -28,28 +28,37 @@ ingress:
   annotations:
     cert-manager.io/cluster-issuer: "letsencrypt-prod"
     nginx.ingress.kubernetes.io/ssl-redirect: "false"
-    nginx.ingress.kubernetes.io/rewrite-target: /$1
   hosts:
     - host: "frontend.sandbox.reservoir"
       paths:
-        - path: /api/?(.*)
-          pathType: Prefix
-          backend:
-            service:
-              name: backend-backend
-              port:
-                number: 8000
-        - path: /()(.*)
+        - path: /
           pathType: Prefix
           backend:
             service:
               name: frontend-frontend
               port:
                 number: 3000
+        - path: /api
+          pathType: Prefix
+          backend:
+            service:
+              name: backend-backend
+              port:
+                number: 8000
+    - host: "api.sandbox.reservoir"
+      paths:
+        - path: /
+          pathType: Prefix
+          backend:
+            service:
+              name: backend-backend
+              port:
+                number: 8000
   tls:
     - secretName: frontend-tls
       hosts:
         - "frontend.sandbox.reservoir"
+        - "api.sandbox.reservoir"
 
 networkPolicy:
   enabled: false
