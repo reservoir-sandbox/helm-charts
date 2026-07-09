@@ -1,67 +1,64 @@
-# Default values for backend.
-# This is a YAML-formatted file.
-# Declare variables to be passed into your templates.
-
 replicaCount: 1
 
 image:
-  repository: ghcr.io/your-org/backend # Replace with your actual image repository
   pullPolicy: IfNotPresent
-  # tag: "latest" # Uncomment and set a specific tag, or use image.fluxPolicy for CI integration
-  # For Flux Image Automation:
-  # fluxPolicy: "backend-image-policy" 
 
 service:
   type: ClusterIP
-  port: 80
+  port: 8080
 
-serviceAccount:
-  create: true
-  name: ""
-  annotations: {}
+config:
+  dbHost: "postgresql-db-postgresql"
+  dbPort: "5432"
+  redisHost: "redis-master"
+  redisPort: "6379"
+  s3Endpoint: "http://cluster.local"
 
-rbac:
-  create: true
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+  hosts:
+    - host: "api.sandbox.reservoir.zone"
+      paths:
+        - path: /
+          pathType: Prefix
 
-# If you want to use the common.networkpolicy helper, uncomment and configure:
-# networkPolicy:
-#   enabled: true
-#   policyTypes:
-#     - Ingress
-#     - Egress
-#   ingress:
-#     - from:
-#         - podSelector: {} # Allow ingress from any pod in the same namespace
-#       ports:
-#         - containerPort: 80
-#   egress:
-#     - to:
-#         - namespaceSelector:
-#             matchLabels:
-#               kubernetes.io/metadata.name: kube-system
-#           podSelector:
-#             matchLabels:
-#               k8s-app: kube-dns
-#       ports:
-#         - protocol: UDP
-#           port: 53
-#         - protocol: TCP
-#           port: 53
-#     # Example egress to a database in another namespace
-#     # - to:
-#     #     - namespaceSelector:
-#     #         matchLabels:
-#     #           kubernetes.io/metadata.name: database-namespace
-#     #       podSelector:
-#     #         matchLabels:
-#     #           app.kubernetes.io/name: postgresql
-#     #   ports:
-#     #     - protocol: TCP
-#     #       port: 5432
-
-# If you want to use an existing service account, set:
-# serviceAccount:
-#   create: false
-#   name: "backend-sa"
-
-# Other configurations can be added here as needed
+networkPolicy:
+  enabled: true
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - podLabels:
+            app.kubernetes.io/name: frontend
+      ports:
+        - protocol: TCP
+          port: 8080
+    - from:
+        - targetNamespace: infrastructure
+          podLabels:
+            app.kubernetes.io/name: ingress-nginx
+      ports:
+        - protocol: TCP
+          port: 8080
+  egress:
+    - to:
+        - podLabels:
+            app.kubernetes.io/name: postgresql-db-postgresql
+        - podLabels:
+            app.kubernetes.io/name: redis
+      ports:
+        - protocol: TCP
+          port: 5432
+        - protocol: TCP
+          port: 6379
+    - to:
+        - targetNamespace: infrastructure
+          podLabels:
+            app.kubernetes.io/name: garage
+      ports:
+        - protocol: TCP
+          port: 3900

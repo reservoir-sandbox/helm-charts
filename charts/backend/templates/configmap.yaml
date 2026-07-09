@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "common.fullname" . }}-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "common.labels" . | nindent 4 }}
+data:
+  # Database and Cache variables (same namespace: apps)
+  DB_HOST: {{ .Values.config.dbHost | default "postgres-db" | quote }}
+  DB_PORT: {{ .Values.config.dbPort | default "5432" | quote }}
+  REDIS_HOST: {{ .Values.config.redisHost | default "redis-cache" | quote }}
+  REDIS_PORT: {{ .Values.config.redisPort | default "6379" | quote }}
+
+  # External storage variables (cross-namespace: infrastructure)
+  S3_ENDPOINT: {{ .Values.config.s3Endpoint | default "http://cluster.local" | quote }}
