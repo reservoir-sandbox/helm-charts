@@ -2,6 +2,17 @@ apiVersion: v1
 entries:
   backend:
   - apiVersion: v2
+    created: "2026-07-09T02:42:58.539099458Z"
+    dependencies:
+    - name: common
+      repository: file://../common
+      version: 0.1.0
+    digest: e193bc00520d193d3bfdf9f4a8c9217d33dfc1430dd56668fe1c902f9d8cecee
+    name: backend
+    urls:
+    - https://github.com/reservoir-sandbox/helm-charts/releases/download/backend-0.1.4/backend-0.1.4.tgz
+    version: 0.1.4
+  - apiVersion: v2
     created: "2026-07-09T02:15:28.294870711Z"
     dependencies:
     - name: common
@@ -141,4 +152,4 @@ entries:
     urls:
     - https://github.com/reservoir-sandbox/helm-charts/releases/download/jobs-0.1.1/jobs-0.1.1.tgz
     version: 0.1.1
-generated: "2026-07-09T02:15:28.2949022Z"
+generated: "2026-07-09T02:42:58.539134483Z"
