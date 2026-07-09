@@ -6,6 +6,6 @@ metadata:
   labels:
     {{- include "common.labels" . | nindent 4 }}
 data:
-  DATABASE_URL: "postgresql://{{ .Values.config.dbUser }}:{{ .Values.config.dbPassword }}@{{ .Values.config.dbHost }}:{{ .Values.config.dbPort }}/{{ .Values.config.dbName }}"
+  DATABASE_URL: "postgresql+asyncpg://{{ .Values.config.dbUser }}:{{ .Values.config.dbPassword }}@{{ .Values.config.dbHost }}:{{ .Values.config.dbPort }}/{{ .Values.config.dbName }}"
   REDIS_URL: "redis://:{{ .Values.config.redisPassword }}@{{ .Values.config.redisHost }}:{{ .Values.config.redisPort }}/0"
   S3_ENDPOINT: {{ .Values.config.s3Endpoint | quote }}
