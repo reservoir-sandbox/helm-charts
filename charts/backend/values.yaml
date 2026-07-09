@@ -62,3 +62,7 @@ networkPolicy:
       ports:
         - protocol: TCP
           port: 3900
+
+serviceAccount:
+  create: true
+  name: "backend-sa"
