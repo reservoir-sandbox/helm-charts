@@ -14,7 +14,7 @@ env:
 jobs:
   publish-charts:
     if: github.actor != 'github-actions[bot]'
-    runs-on: [self-hosted, linux, x64]
+    runs-on: ubuntu-latest
     permissions:
       contents: write
       packages: write
