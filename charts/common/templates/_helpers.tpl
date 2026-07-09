@@ -81,28 +81,30 @@ spec:
   ingress:
     {{- range .Values.networkPolicy.ingress }}
     - from:
-      {{- if .from }}
-        {{- range .from }}
-        {{- if .targetNamespace }}
-          namespaceSelector:
-            matchLabels:
-              kubernetes.io/metadata.name: {{ .targetNamespace }}
-          {{- if .podLabels }}
-          podSelector:
-            matchLabels:
-              {{- toYaml .podLabels | nindent 14 }}
+        {{- if .from }}
+          {{- range .from }}
+          # Вариант А: Если указан кросс-неймспейс targetNamespace
+          {{- if .targetNamespace }}
+          - namespaceSelector:
+              matchLabels:
+                kubernetes.io/metadata.name: {{ .targetNamespace }}
+            {{- if .podLabels }}
+            podSelector:
+              matchLabels:
+                {{- toYaml .podLabels | nindent 16 }}
+            {{- else }}
+            podSelector: {}
+            {{- end }}
           {{- else }}
-          podSelector: {}
+          # Вариант Б: Стандартный локальный селектор пода
+          - podSelector:
+              matchLabels:
+                {{- toYaml .podLabels | nindent 16 }}
+          {{- end }}
           {{- end }}
         {{- else }}
-          podSelector:
-            matchLabels:
-              {{- toYaml .podLabels | nindent 14 }}
+          podSelector: {} # Если .from пустой, разрешаем трафик отовсюду на указанный порт
         {{- end }}
-        {{- end }}
-      {{- else }}
-      podSelector: {}
-      {{- end }}
       {{- if .ports }}
       ports:
         {{- toYaml .ports | nindent 8 }}
@@ -112,6 +114,7 @@ spec:
 
   {{- if or .Values.networkPolicy.egress (has "Egress" .Values.networkPolicy.policyTypes) }}
   egress:
+    # Автоматический системный Egress для CoreDNS (kube-system)
     - to:
         - namespaceSelector:
             matchLabels:
@@ -124,6 +127,7 @@ spec:
           port: 53
         - protocol: TCP
           port: 53
+    # Кастомные правила Egress из values
     {{- if .Values.networkPolicy.egress }}
       {{- range .Values.networkPolicy.egress }}
     - to:
