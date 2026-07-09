@@ -23,14 +23,14 @@ ingress:
     cert-manager.io/cluster-issuer: "letsencrypt-prod"
     nginx.ingress.kubernetes.io/ssl-redirect: "false"
   hosts:
-    - host: "frontend.sandbox.reservoir.zone"
+    - host: "frontend.sandbox.reservoir"
       paths:
         - path: /
           pathType: Prefix
   tls:
     - secretName: frontend-tls
       hosts:
-        - "frontend.sandbox.reservoir.zone"
+        - "frontend.sandbox.reservoir"
 
 networkPolicy:
   enabled: true

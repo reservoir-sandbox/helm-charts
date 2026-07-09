@@ -20,7 +20,7 @@ ingress:
   annotations:
     nginx.ingress.kubernetes.io/ssl-redirect: "false"
   hosts:
-    - host: "api.sandbox.reservoir.zone"
+    - host: "api.sandbox.reservoir"
       paths:
         - path: /
           pathType: Prefix
