@@ -70,6 +70,20 @@ entries:
   frontend:
   - apiVersion: v2
     appVersion: 0.1.0
+    created: "2026-07-09T04:00:42.617419483Z"
+    dependencies:
+    - name: common
+      repository: file://../common
+      version: 0.1.0
+    description: A Helm chart for Kubernetes frontend
+    digest: 901264454f250b5f0bf8f42ef73bd909e0cd497655d949c90463e0655ec0775a
+    name: frontend
+    type: application
+    urls:
+    - https://github.com/reservoir-sandbox/helm-charts/releases/download/frontend-0.1.8/frontend-0.1.8.tgz
+    version: 0.1.8
+  - apiVersion: v2
+    appVersion: 0.1.0
     created: "2026-07-09T02:01:07.022086768Z"
     dependencies:
     - name: common
@@ -163,4 +177,4 @@ entries:
     urls:
     - https://github.com/reservoir-sandbox/helm-charts/releases/download/jobs-0.1.1/jobs-0.1.1.tgz
     version: 0.1.1
-generated: "2026-07-09T03:00:12.863502292Z"
+generated: "2026-07-09T04:00:42.617493744Z"
