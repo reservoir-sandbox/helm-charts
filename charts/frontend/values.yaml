@@ -13,8 +13,8 @@ serviceAccount:
   name: ""
 
 config:
-  backendUrl: "http://cluster.local"
-  API_URL: "http://cluster.local"
+  backendUrl: "http://backend-backend:8000"
+  API_URL: "http://backend-backend:8000"
   nodeEnv: "production"
 
   VITE_API_URL: "http://api.sandbox.reservoir"
@@ -28,11 +28,24 @@ ingress:
   annotations:
     cert-manager.io/cluster-issuer: "letsencrypt-prod"
     nginx.ingress.kubernetes.io/ssl-redirect: "false"
+    nginx.ingress.kubernetes.io/rewrite-target: /$1
   hosts:
     - host: "frontend.sandbox.reservoir"
       paths:
-        - path: /
+        - path: /api/?(.*)
           pathType: Prefix
+          backend:
+            service:
+              name: backend-backend
+              port:
+                number: 8000
+        - path: /()(.*)
+          pathType: Prefix
+          backend:
+            service:
+              name: frontend-frontend
+              port:
+                number: 3000
   tls:
     - secretName: frontend-tls
       hosts:
