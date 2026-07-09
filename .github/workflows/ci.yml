@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-    # CRITICAL FIX: Prevent infinite loop by ignoring commits made by the actions bot itself
     paths-ignore:
       - '.github/workflows/**'
   workflow_dispatch:
@@ -14,7 +13,6 @@ env:
 
 jobs:
   publish-charts:
-    # CRITICAL FIX: Double check at job level that we do not trigger on bot's own commits
     if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     permissions:
@@ -22,7 +20,7 @@ jobs:
       packages: write
 
     steps:
-      # Step 1: Checkout the charts repository (fetch-depth: 0 is mandatory for chart-releaser)
+      # Step 1: Checkout the charts repository
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
@@ -32,11 +30,11 @@ jobs:
       - name: Install Helm
         uses: azure/setup-helm@v4
 
-      # Step 3: Configure global Git credentials for automated commits
+      # Step 3: Configure global Git credentials (FIXED broken email string)
       - name: Configure Git
         run: |
           git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@://github.com"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
       # Step 4: Checkout the infrastructure GitOps repository into a subfolder
       - name: Checkout gitops-deployment repository
@@ -46,34 +44,49 @@ jobs:
           token: ${{ secrets.PAT_TOKEN }}
           path: gitops-deployment
 
-      # Step 5: Automatically calculate the next version and update BOTH repositories
-      - name: Bump Chart version and update HelmRelease manifests
+      # Step 5: Automatically detect changes, bump versions, and build dependencies for ALL charts
+      - name: Process, bump and prepare all changed charts
         run: |
-          # Read the current version from Chart.yaml
-          CURRENT_VERSION=$(yq eval '.version' charts/frontend/Chart.yaml)
+          # Loop through all service directories (skipping 'common' library chart from direct bumping)
+          for chart_dir in charts/frontend charts/backend charts/jobs; do
+            if [ -d "$chart_dir" ]; then
+              chart_name=$(basename "$chart_dir")
+              echo "Processing chart: $chart_name"
 
-          # Parse semantic versioning components (Major.Minor.Patch)
-          IFS='.' read -r major minor patch <<< "$CURRENT_VERSION"
+              # 1. Read and calculation of the next version
+              CURRENT_VERSION=$(yq eval '.version' ${chart_dir}/Chart.yaml)
+              IFS='.' read -r major minor patch <<< "$CURRENT_VERSION"
+              NEW_PATCH=$((patch + 1))
+              NEW_VERSION="$major.$minor.$NEW_PATCH"
 
-          # Increment the patch version by 1 automatically
-          NEW_PATCH=$((patch + 1))
-          NEW_VERSION="$major.$minor.$NEW_PATCH"
+              # 2. Update version inside Chart.yaml
+              export NEW_VERSION
+              yq eval -i '.version = strenv(NEW_VERSION)' ${chart_dir}/Chart.yaml
 
-          # Export to both environment and next steps
-          export NEW_VERSION
-          echo "CHART_VERSION=${NEW_VERSION}" >> $GITHUB_ENV
+              # 3. Build Helm dependencies (embeds 'common' library into front/back/jobs)
+              helm dependency build $chart_dir/
 
-          # Apply the identical new version string to both files immediately
-          yq eval -i '.version = strenv(NEW_VERSION)' charts/frontend/Chart.yaml
-          yq eval -i '.spec.chart.spec.version = strenv(NEW_VERSION)' gitops-deployment/apps/frontend/frontend-release.yaml
+              # 4. Map 'jobs' directory to its correct Flux folder inside gitops repo
+              flux_dir="apps"
+              if [ "$chart_name" = "jobs" ]; then
+                flux_dir="jobs"
+              fi
 
-          # Commit and push the new version back to the charts repository BEFORE chart-releaser runs
-          git add charts/frontend/Chart.yaml
-          if [ -n "$(git status --porcelain charts/frontend/Chart.yaml)" ]; then
-            git commit -m "chore: bump frontend chart version to ${NEW_VERSION}"
+              # 5. Update HelmRelease version in GitOps repository if the file exists
+              flux_manifest="gitops-deployment/${flux_dir}/${chart_name}/${chart_name}-release.yaml"
+              if [ -f "$flux_manifest" ]; then
+                yq eval -i '.spec.chart.spec.version = strenv(NEW_VERSION)' "$flux_manifest"
+              fi
+            fi
+          done
+
+          # Commit and push all updated Chart.yaml files back to the charts repository
+          git add charts/*/Chart.yaml
+          if [ -n "$(git status --porcelain charts/*/Chart.yaml)" ]; then
+            git commit -m "chore: automated charts version bump"
             git push
           else
-            echo "Chart version has not changed."
+            echo "No chart versions were changed."
           fi
 
       # Step 6: Log in to GitHub Container Registry
@@ -84,12 +97,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # Step 7: Build local chart dependencies (embeds 'common' chart)
-      - name: Build chart dependencies
-        run: |
-          helm dependency build charts/frontend/
-
-      # Step 8: Run chart-releaser to publish the newly generated version to GitHub Pages
+      # Step 7: Run chart-releaser to publish all packages and update gh-pages index.yaml
       - name: Run chart-releaser
         uses: helm/chart-releaser-action@v1.6.0
         env:
@@ -98,13 +106,13 @@ jobs:
         with:
           charts_dir: charts
 
-      # Step 9: Push the already modified HelmRelease manifest to the GitOps repo
-      - name: Push updated HelmRelease to GitOps repo
+      # Step 8: Push all modified HelmRelease manifests to the GitOps repo in one single commit
+      - name: Push updated HelmRelease manifests to GitOps repo
         run: |
-          git -C gitops-deployment add apps/frontend/frontend-release.yaml
-          if [ -n "$(git -C gitops-deployment status --porcelain apps/frontend/frontend-release.yaml)" ]; then
-            git -C gitops-deployment commit -m "Update frontend chart deployment to version ${CHART_VERSION}"
+          git -C gitops-deployment add .
+          if [ -n "$(git -C gitops-deployment status --porcelain)" ]; then
+            git -C gitops-deployment commit -m "Update applications deployment manifests to the latest chart versions"
             git -C gitops-deployment push
           else
-            echo "HelmRelease manifest is already synchronized."
+            echo "All GitOps manifests are already up to date."
           fi
