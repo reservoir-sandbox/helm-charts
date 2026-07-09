@@ -35,7 +35,7 @@ ingress:
           pathType: Prefix
 
 networkPolicy:
-  enabled: true
+  enabled: false
   policyTypes:
     - Ingress
     - Egress

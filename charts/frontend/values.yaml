@@ -33,7 +33,7 @@ ingress:
         - "frontend.sandbox.reservoir"
 
 networkPolicy:
-  enabled: true
+  enabled: false
   policyTypes:
     - Ingress
     - Egress
