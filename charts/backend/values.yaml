@@ -8,10 +8,19 @@ service:
   port: 8080
 
 config:
-  dbHost: "postgresql-db-postgresql"
+  # Postgres configs
+  dbHost: "postgres-db-postgresql"
   dbPort: "5432"
+  dbUser: "postgres"
+  dbName: "postgres"
+  dbPassword: "X4KCRdsj3gcwsvqGOpwil8Ue"
+
+  # Redis configs
   redisHost: "redis-master"
   redisPort: "6379"
+  redisPassword: "PFXbBtnTUXEUPFLgXovzG1Bi"
+
+  # Storage
   s3Endpoint: "http://cluster.local"
 
 ingress:
