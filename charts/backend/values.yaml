@@ -5,7 +5,7 @@ image:
 
 service:
   type: ClusterIP
-  port: 8080
+  port: 8000
 
 config:
   # Postgres configs
@@ -45,7 +45,7 @@ networkPolicy:
             app.kubernetes.io/name: frontend
       ports:
         - protocol: TCP
-          port: 8080
+          port: 8000
     - from:
         - namespaceSelector:
             matchLabels:
@@ -54,7 +54,7 @@ networkPolicy:
             app.kubernetes.io/name: ingress-nginx
       ports:
         - protocol: TCP
-          port: 8080
+          port: 8000
   egress:
     - to:
         - podLabels:
