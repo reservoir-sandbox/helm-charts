@@ -13,9 +13,13 @@ serviceAccount:
   name: ""
 
 config:
+  backendUrl: "http://cluster.local"
+  API_URL: "http://cluster.local"
   nodeEnv: "production"
 
   VITE_API_URL: "http://api.sandbox.reservoir"
+  API_BASE_URL: "http://api.sandbox.reservoir"
+
 
 
 ingress:
