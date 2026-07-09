@@ -72,7 +72,6 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: {{ include "common.fullname" . }}
-  # Автоматически подставляем неймспейс текущего релиза (apps, jobs или infra)
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "common.labels" . | nindent 4 }}
@@ -89,9 +88,8 @@ spec:
     - from:
       {{- if .from }}
         {{- range .from }}
-        # Если в правиле указан targetNamespace, активируем кросс-неймспейс селектор (Улучшение 3)
         {{- if .targetNamespace }}
-        - namespaceSelector:
+          namespaceSelector:
             matchLabels:
               kubernetes.io/metadata.name: {{ .targetNamespace }}
           {{- if .podLabels }}
@@ -99,17 +97,16 @@ spec:
             matchLabels:
               {{- toYaml .podLabels | nindent 14 }}
           {{- else }}
-          podSelector: {} # Разрешить всем подам из целевого неймспейса
+          podSelector: {}
           {{- end }}
         {{- else }}
-        # Иначе используем стандартный локальный podSelector внутри текущего пространства имен
-        - podSelector:
+          podSelector:
             matchLabels:
               {{- toYaml .podLabels | nindent 14 }}
         {{- end }}
         {{- end }}
       {{- else }}
-      # Если секция .from пустая, значит это открытый входящий порт (например, для nginx ingress)
+      podSelector: {}
       {{- end }}
       {{- if .ports }}
       ports:
@@ -120,8 +117,6 @@ spec:
 
   {{- if or .Values.networkPolicy.egress (has "Egress" .Values.networkPolicy.policyTypes) }}
   egress:
-    # УЛУЧШЕНИЕ 2: Жестко зашитый дефолтный Egress в kube-system для CoreDNS (порт 53)
-    # Защищает поды от потери связи со встроенным DNS-сервером кластера при включении изоляции.
     - to:
         - namespaceSelector:
             matchLabels:
@@ -134,26 +129,25 @@ spec:
           port: 53
         - protocol: TCP
           port: 53
-    # Кастомные правила Egress из values (например, бэк идет к postgres в infra)
     {{- if .Values.networkPolicy.egress }}
       {{- range .Values.networkPolicy.egress }}
     - to:
         {{- range .to }}
         {{- if .targetNamespace }}
-        - namespaceSelector:
-            matchLabels:
-              kubernetes.io/metadata.name: {{ .targetNamespace }}
-          {{- if .podLabels }}
-          podSelector:
-            matchLabels:
-              {{- toYaml .podLabels | nindent 14 }}
-          {{- else }}
-          podSelector: {}
-          {{- end }}
+          - namespaceSelector:
+              matchLabels:
+                kubernetes.io/metadata.name: {{ .targetNamespace }}
+            {{- if .podLabels }}
+            podSelector:
+              matchLabels:
+                {{- toYaml .podLabels | nindent 16 }}
+            {{- else }}
+            podSelector: {}
+            {{- end }}
         {{- else }}
-        - podSelector:
-            matchLabels:
-              {{- toYaml .podLabels | nindent 14 }}
+          - podSelector:
+              matchLabels:
+                {{- toYaml .podLabels | nindent 16 }}
         {{- end }}
         {{- end }}
       {{- if .ports }}
