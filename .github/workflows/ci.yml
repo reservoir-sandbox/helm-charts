@@ -45,37 +45,50 @@ jobs:
           path: gitops-deployment
 
       # Step 5: Automatically detect changes, bump versions, and build dependencies for ALL charts
-      - name: Process, bump and prepare all changed charts
+      # Step 5: Automatically detect changes using git diff, bump versions only for CHANGED charts
+      - name: Process, bump and prepare ONLY changed charts
         run: |
-          # Loop through all service directories (skipping 'common' library chart from direct bumping)
+          # Get a list of directories that actually have changes in the current commit
+          # compared to the previous commit (HEAD~1)
+          CHANGED_FOLDERS=$(git diff --name-only HEAD~1 HEAD | awk -F/ '{print $1"/"$2}' | sort -u)
+
           for chart_dir in charts/frontend charts/backend charts/jobs; do
             if [ -d "$chart_dir" ]; then
               chart_name=$(basename "$chart_dir")
-              echo "Processing chart: $chart_name"
 
-              # 1. Read and calculation of the next version
-              CURRENT_VERSION=$(yq eval '.version' ${chart_dir}/Chart.yaml)
-              IFS='.' read -r major minor patch <<< "$CURRENT_VERSION"
-              NEW_PATCH=$((patch + 1))
-              NEW_VERSION="$major.$minor.$NEW_PATCH"
+              # Check if the specific chart directory is present in the git diff output
+              if echo "$CHANGED_FOLDERS" | grep -q "$chart_dir"; then
+                echo "🚀 Changes detected in chart: $chart_name. Starting bump process..."
 
-              # 2. Update version inside Chart.yaml
-              export NEW_VERSION
-              yq eval -i '.version = strenv(NEW_VERSION)' ${chart_dir}/Chart.yaml
+                # 1. Read and calculate the next version
+                CURRENT_VERSION=$(yq eval '.version' ${chart_dir}/Chart.yaml)
+                IFS='.' read -r major minor patch <<< "$CURRENT_VERSION"
+                NEW_PATCH=$((patch + 1))
+                NEW_VERSION="$major.$minor.$NEW_PATCH"
 
-              # 3. Build Helm dependencies (embeds 'common' library into front/back/jobs)
-              helm dependency build $chart_dir/
+                # 2. Update version inside Chart.yaml
+                export NEW_VERSION
+                yq eval -i '.version = strenv(NEW_VERSION)' ${chart_dir}/Chart.yaml
 
-              # 4. Map 'jobs' directory to its correct Flux folder inside gitops repo
-              flux_dir="apps"
-              if [ "$chart_name" = "jobs" ]; then
-                flux_dir="jobs"
-              fi
+                # 3. Build Helm dependencies (embeds 'common' library into changed chart)
+                helm dependency build $chart_dir/
 
-              # 5. Update HelmRelease version in GitOps repository if the file exists
-              flux_manifest="gitops-deployment/${flux_dir}/${chart_name}/${chart_name}-release.yaml"
-              if [ -f "$flux_manifest" ]; then
-                yq eval -i '.spec.chart.spec.version = strenv(NEW_VERSION)' "$flux_manifest"
+                # 4. Map directory to its correct Flux folder inside gitops repo
+                flux_dir="apps"
+                if [ "$chart_name" = "jobs" ]; then
+                  flux_dir="jobs"
+                fi
+
+                # 5. Update HelmRelease version in GitOps repository if the file exists
+                flux_manifest="gitops-deployment/${flux_dir}/${chart_name}/${chart_name}-release.yaml"
+                if [ -f "$flux_manifest" ]; then
+                  yq eval -i '.spec.chart.spec.version = strenv(NEW_VERSION)' "$flux_manifest"
+                  echo "✅ Updated $chart_name manifest in GitOps to version $NEW_VERSION"
+                fi
+              else
+                echo "💤 No changes detected in $chart_dir. Skipping bump."
+                # Even if chart didn't change, we still build dependencies just to be safe for chart-releaser
+                helm dependency build $chart_dir/
               fi
             fi
           done
@@ -83,10 +96,10 @@ jobs:
           # Commit and push all updated Chart.yaml files back to the charts repository
           git add charts/*/Chart.yaml
           if [ -n "$(git status --porcelain charts/*/Chart.yaml)" ]; then
-            git commit -m "chore: automated charts version bump"
+            git commit -m "chore: automated charts version bump for changed services"
             git push
           else
-            echo "No chart versions were changed."
+            echo "No chart versions were changed in this run."
           fi
 
       # Step 6: Log in to GitHub Container Registry
